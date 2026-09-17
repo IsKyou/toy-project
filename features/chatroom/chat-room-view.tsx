@@ -319,6 +319,10 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
               전송
             </Button>
           </form>
+
+          <p className="text-center text-xs text-muted-foreground">
+            &quot;여기&quot; 를 클릭하고 방향키를 누르면 케릭터가 움직입니다.
+          </p>
         </div>
 
         {/* 흐름에서 빼내야 이 패널이 줄 높이를 결정하지 못한다. 흐름에
