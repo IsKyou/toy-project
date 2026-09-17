@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/", label: "홈" },
   { href: "/about", label: "소개" },
+  { href: "/map", label: "map" },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
