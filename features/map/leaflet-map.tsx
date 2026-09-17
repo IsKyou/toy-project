@@ -9,6 +9,12 @@ import { useEffect, useRef, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
+import { createRoom, CreateRoomError } from "@/features/apiutil";
+
+// components/ui/input.tsx의 class와 동일하게 맞춘다. 팝업 안 input은 순수
+// DOM이라 Input 컴포넌트를 그대로 못 쓴다.
+const INPUT_CLASS_NAME =
+  "h-7 w-full min-w-0 rounded-md border border-input bg-input/20 px-2 py-0.5 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
 
 const SEOUL: L.LatLngTuple = [37.5665, 126.978];
 const DEFAULT_ZOOM = 13;
@@ -23,30 +29,57 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-// 팝업 안 "방 생성" 버튼은 Leaflet이 관리하는 순수 DOM이라 React 컴포넌트를
-// 그대로 넣을 수 없다. 대신 shadcn Button과 같은 class를 buttonVariants로
-// 뽑아 붙여서 시각적으로만 동일한 버튼을 만든다.
+const EMPTY_TITLE_MESSAGE = "방 제목이 없어서 방 생성을 할 수 없습니다.";
+
+// 팝업 안 내용은 Leaflet이 관리하는 순수 DOM이라 React 컴포넌트를 그대로 넣을
+// 수 없다. 대신 shadcn Button/Input과 같은 class를 붙여서 시각적으로만
+// 동일하게 만든다.
 function createRoomPopupContent(
   lat: number,
   lng: number,
-  onCreateRoom: (lat: number, lng: number) => void
+  onCreateRoom: (title: string) => void
 ) {
   const container = document.createElement("div");
-  container.className = "flex flex-col gap-2 py-1";
+  container.className = "flex w-56 flex-col gap-2 py-1";
 
   const coords = document.createElement("p");
   coords.className = "text-xs text-muted-foreground";
   coords.textContent = `위치: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   container.appendChild(coords);
 
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.placeholder = "방 제목";
+  titleInput.className = INPUT_CLASS_NAME;
+  container.appendChild(titleInput);
+
+  const errorMessage = document.createElement("p");
+  errorMessage.className = "text-xs text-destructive hidden";
+  errorMessage.textContent = EMPTY_TITLE_MESSAGE;
+  container.appendChild(errorMessage);
+
+  titleInput.addEventListener("input", () => {
+    if (titleInput.value.trim()) {
+      errorMessage.classList.add("hidden");
+    }
+  });
+
   const createButton = document.createElement("button");
   createButton.type = "button";
   createButton.className = buttonVariants({ size: "sm" });
   createButton.textContent = "방 생성";
-  createButton.addEventListener("click", () => onCreateRoom(lat, lng));
+  createButton.addEventListener("click", () => {
+    const title = titleInput.value.trim();
+    if (!title) {
+      errorMessage.classList.remove("hidden");
+      titleInput.focus();
+      return;
+    }
+    onCreateRoom(title);
+  });
   container.appendChild(createButton);
 
-  return container;
+  return { container, createButton };
 }
 
 export function LeafletMap() {
@@ -74,19 +107,45 @@ export function LeafletMap() {
     function handleMapClick(event: L.LeafletMouseEvent) {
       const { lat, lng } = event.latlng;
 
-      const content = createRoomPopupContent(lat, lng, (roomLat, roomLng) => {
-        // TODO: POST /api/room 요청 스펙이 확정되면 실제 방 생성 호출로 교체.
-        console.log("방 생성 요청(placeholder):", { lat: roomLat, lng: roomLng });
-        toast.add({
-          title: "방 생성은 아직 준비 중입니다.",
-          description: `위치 ${roomLat.toFixed(5)}, ${roomLng.toFixed(5)}에 방을 만드는 API 연동이 필요합니다.`,
-          type: "info",
-        });
-      });
+      const { container, createButton } = createRoomPopupContent(
+        lat,
+        lng,
+        async (title) => {
+          createButton.disabled = true;
+          createButton.textContent = "생성 중...";
+          try {
+            // 문서에 X/Y 중 무엇이 경도·위도인지 명시돼 있지 않아, 화면
+            // 좌표계 관례대로 X=경도(lng), Y=위도(lat)로 매핑한다.
+            const room = await createRoom({
+              type: "named",
+              name: title,
+              posX: lng,
+              posY: lat,
+            });
+            toast.add({
+              title: "방을 생성했습니다.",
+              description: `roomId: ${room.roomId}`,
+              type: "success",
+            });
+            map.closePopup();
+          } catch (error) {
+            toast.add({
+              title: "방 생성에 실패했습니다.",
+              description:
+                error instanceof CreateRoomError
+                  ? error.message
+                  : "잠시 후 다시 시도해주세요.",
+              type: "error",
+            });
+            createButton.disabled = false;
+            createButton.textContent = "방 생성";
+          }
+        }
+      );
 
       // 마커 없이 팝업만 띄운다. Leaflet 팝업은 setLatLng으로 지정한 좌표에
       // 꼬리가 붙고, autoClose 기본값 덕분에 이전 팝업은 자동으로 닫힌다.
-      L.popup().setLatLng([lat, lng]).setContent(content).openOn(map);
+      L.popup().setLatLng([lat, lng]).setContent(container).openOn(map);
     }
 
     map.on("click", handleMapClick);
