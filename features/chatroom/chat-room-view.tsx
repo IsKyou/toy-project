@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/message-scroller";
 import { Spinner } from "@/components/ui/spinner";
 import { useStoredNickname } from "@/features/identity";
+import { setNavigationGuard } from "@/features/navigation-guard";
 
 import type { ConnectionStatus } from "./use-chat-room-socket";
 import { useChatRoomSocket } from "./use-chat-room-socket";
@@ -57,7 +58,7 @@ function formatTime(timestamp: number) {
 
 export function ChatRoomView({ roomId }: { roomId: string }) {
   const router = useRouter();
-  const { status, entries, participants, join, sendMessage } =
+  const { status, entries, participants, join, sendMessage, leave } =
     useChatRoomSocket(roomId);
   const storedNickname = useStoredNickname();
   const [draft, setDraft] = useState("");
@@ -79,6 +80,20 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
       `/userprofile?redirect=${encodeURIComponent(`/chatroom/${roomId}`)}`
     );
   }, [storedNickname, join, router, roomId]);
+
+  // 접속을 시도 중이거나 이미 접속된 동안에는 상단 탭으로 이동하기 전에
+  // 확인을 받는다. 확인하면 leave()로 소켓을 닫아 서버에 퇴장 신호를 보낸
+  // 뒤 이동이 이어진다.
+  useEffect(() => {
+    if (status !== "connecting" && status !== "ready") {
+      return;
+    }
+    setNavigationGuard({
+      message: "채팅방을 나가시겠어요? 나가면 채팅방에서 퇴장합니다.",
+      onLeave: leave,
+    });
+    return () => setNavigationGuard(null);
+  }, [status, leave]);
 
   function handleSend(event: FormEvent) {
     event.preventDefault();

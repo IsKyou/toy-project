@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useNavigationGuard } from "@/features/navigation-guard";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -17,6 +18,18 @@ const NAV_ITEMS = [
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [clickCount, setClickCount] = useState(0);
+  const guard = useNavigationGuard();
+
+  function handleNavigate(event: { preventDefault: () => void }) {
+    if (!guard) {
+      return;
+    }
+    if (!window.confirm(guard.message)) {
+      event.preventDefault();
+      return;
+    }
+    guard.onLeave();
+  }
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -26,6 +39,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
+              onNavigate={handleNavigate}
               className={cn(
                 "text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
                 pathname === item.href && "text-foreground"

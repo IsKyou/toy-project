@@ -184,20 +184,24 @@ export function useChatRoomSocket(roomId: string) {
     wsRef.current.send(JSON.stringify({ message: trimmed }));
   }, []);
 
-  useEffect(() => {
-    return () => {
-      wsRef.current?.close();
-      // StrictMode 개발 모드는 mount→cleanup→재mount를 한 번 시뮬레이션
-      // 한다. wsRef를 null로 되돌리지 않으면 재mount 이후의 join()이
-      // "이미 연결됨" 가드에 막혀, 방금 닫힌 소켓만 남고 새 연결이 열리지
-      // 않는다.
-      wsRef.current = null;
-      if (pingTimerRef.current) {
-        clearInterval(pingTimerRef.current);
-        pingTimerRef.current = null;
-      }
-    };
+  // 연결을 닫는다(= 서버에 퇴장 신호가 간다). 언마운트 시 자동으로도
+  // 호출되지만, 사용자가 직접 "나가기"를 확정했을 때도 같은 로직을 쓴다.
+  const leave = useCallback(() => {
+    wsRef.current?.close();
+    // StrictMode 개발 모드는 mount→cleanup→재mount를 한 번 시뮬레이션
+    // 한다. wsRef를 null로 되돌리지 않으면 재mount 이후의 join()이
+    // "이미 연결됨" 가드에 막혀, 방금 닫힌 소켓만 남고 새 연결이 열리지
+    // 않는다.
+    wsRef.current = null;
+    if (pingTimerRef.current) {
+      clearInterval(pingTimerRef.current);
+      pingTimerRef.current = null;
+    }
   }, []);
 
-  return { status, entries, participants, join, sendMessage };
+  useEffect(() => {
+    return leave;
+  }, [leave]);
+
+  return { status, entries, participants, join, sendMessage, leave };
 }
