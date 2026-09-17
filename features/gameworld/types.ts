@@ -33,7 +33,7 @@ export interface RemoteMove extends Omit<MoveCommand, "seq"> {
 // 단독으로도 구동할 수 있다.
 export interface GameWorldHandle {
   setMe(name: string): void;
-  jump(): void;
+  hopInPlace(): void;
   upsertPlayer(player: PlayerUpsert): void;
   removePlayer(name: string): void;
   showSpeech(name: string, text: string): void;
