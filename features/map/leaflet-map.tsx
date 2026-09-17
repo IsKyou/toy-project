@@ -6,7 +6,7 @@ import L from "leaflet";
 import { LocateFixedIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 
@@ -22,6 +22,32 @@ L.Icon.Default.mergeOptions({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
+
+// 팝업 안 "방 생성" 버튼은 Leaflet이 관리하는 순수 DOM이라 React 컴포넌트를
+// 그대로 넣을 수 없다. 대신 shadcn Button과 같은 class를 buttonVariants로
+// 뽑아 붙여서 시각적으로만 동일한 버튼을 만든다.
+function createRoomPopupContent(
+  lat: number,
+  lng: number,
+  onCreateRoom: (lat: number, lng: number) => void
+) {
+  const container = document.createElement("div");
+  container.className = "flex flex-col gap-2 py-1";
+
+  const coords = document.createElement("p");
+  coords.className = "text-xs text-muted-foreground";
+  coords.textContent = `위치: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  container.appendChild(coords);
+
+  const createButton = document.createElement("button");
+  createButton.type = "button";
+  createButton.className = buttonVariants({ size: "sm" });
+  createButton.textContent = "방 생성";
+  createButton.addEventListener("click", () => onCreateRoom(lat, lng));
+  container.appendChild(createButton);
+
+  return container;
+}
 
 export function LeafletMap() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,7 +71,28 @@ export function LeafletMap() {
 
     L.marker(SEOUL).addTo(map).bindPopup("서울");
 
+    function handleMapClick(event: L.LeafletMouseEvent) {
+      const { lat, lng } = event.latlng;
+
+      const content = createRoomPopupContent(lat, lng, (roomLat, roomLng) => {
+        // TODO: POST /api/room 요청 스펙이 확정되면 실제 방 생성 호출로 교체.
+        console.log("방 생성 요청(placeholder):", { lat: roomLat, lng: roomLng });
+        toast.add({
+          title: "방 생성은 아직 준비 중입니다.",
+          description: `위치 ${roomLat.toFixed(5)}, ${roomLng.toFixed(5)}에 방을 만드는 API 연동이 필요합니다.`,
+          type: "info",
+        });
+      });
+
+      // 마커 없이 팝업만 띄운다. Leaflet 팝업은 setLatLng으로 지정한 좌표에
+      // 꼬리가 붙고, autoClose 기본값 덕분에 이전 팝업은 자동으로 닫힌다.
+      L.popup().setLatLng([lat, lng]).setContent(content).openOn(map);
+    }
+
+    map.on("click", handleMapClick);
+
     return () => {
+      map.off("click", handleMapClick);
       map.remove();
       mapRef.current = null;
       userMarkerRef.current = null;
