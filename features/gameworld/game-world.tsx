@@ -132,6 +132,7 @@ export function GameWorld({ onMove, className, ref }: GameWorldProps) {
     ref,
     () => ({
       setMe: (name) => runOnScene((scene) => scene.setMe(name)),
+      jump: () => runOnScene((scene) => scene.jump()),
       upsertPlayer: (player) => runOnScene((scene) => scene.upsertPlayer(player)),
       removePlayer: (name) => runOnScene((scene) => scene.removePlayer(name)),
       showSpeech: (name, text) =>

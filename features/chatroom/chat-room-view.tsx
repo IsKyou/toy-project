@@ -4,6 +4,7 @@ import { SendIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   type FormEvent,
+  type KeyboardEvent,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -56,6 +57,18 @@ const STATUS_BADGE_VARIANT: Record<
   closed: "outline",
   error: "destructive",
 };
+
+// 글자를 만들지 않는 키들. 이것까지 점프로 치면 Shift를 누르고 있기만
+// 해도 캐릭터가 뛴다.
+const SILENT_KEYS = new Set([
+  "Shift",
+  "Control",
+  "Alt",
+  "Meta",
+  "CapsLock",
+  "Tab",
+  "Escape",
+]);
 
 function formatTime(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString("ko-KR", {
@@ -180,6 +193,18 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
     return () => setNavigationGuard(null);
   }, [status, leave]);
 
+  // 채팅을 치는 동안 내 캐릭터가 타건에 맞춰 통통 뛴다. 입력창에 포커스가
+  // 있으면 방향키 조작은 꺼져 있으므로, 이 경로로만 점프가 발동한다.
+  function handleDraftKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    if (SILENT_KEYS.has(event.key)) {
+      return;
+    }
+    gameRef.current?.jump();
+  }
+
   function handleSend(event: FormEvent) {
     event.preventDefault();
     if (!draft.trim()) {
@@ -285,6 +310,7 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
             <Input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleDraftKeyDown}
               placeholder="메시지를 입력하세요"
               disabled={status !== "ready"}
             />

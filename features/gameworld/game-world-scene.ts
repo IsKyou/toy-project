@@ -169,6 +169,20 @@ export class GameWorldScene extends Phaser.Scene {
     });
   }
 
+  // 방향키가 아닌 계기로도 뛰게 한다. 방향키 점프와 같은 규칙을 따라,
+  // 바닥을 딛고 있을 때만 발동하고 공중에서는 무시한다. 그렇지 않으면
+  // 빠르게 연타할 때 캐릭터가 계속 떠오른다.
+  jump() {
+    const me = this.me;
+    if (!me) {
+      return;
+    }
+    if (!me.body.blocked.down && !me.body.touching.down) {
+      return;
+    }
+    me.body.setVelocity(0, HOP_VELOCITY_Y);
+  }
+
   // 채팅 입력창에 포커스가 있는 동안에는 방향키가 캐릭터를 움직이면 안 된다.
   setInputEnabled(enabled: boolean) {
     const keyboard = this.input.keyboard;
