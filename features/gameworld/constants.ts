@@ -13,6 +13,11 @@ export const BODY_RADIUS = 22;
 export const HOP_VELOCITY_X = 300;
 export const HOP_VELOCITY_Y = -760;
 
+// 타이핑에 맞춰 뛰는 제자리 점프. 방향키 점프의 1/3 높이만 뜬다.
+// 도약 높이는 속도의 제곱에 비례하므로(h = v^2 / 2g), 속도는 1/3이 아니라
+// 루트 1/3배여야 한다. 760 * 0.577 = 439에서 반올림했다.
+export const TYPING_HOP_VELOCITY_Y = -440;
+
 // 공중에서는 방향키로 약하게만 방향을 틀 수 있다.
 export const AIR_ACCELERATION_X = 600;
 export const AIR_MAX_VELOCITY_X = 420;

@@ -202,7 +202,7 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
     if (SILENT_KEYS.has(event.key)) {
       return;
     }
-    gameRef.current?.jump();
+    gameRef.current?.hopInPlace();
   }
 
   function handleSend(event: FormEvent) {
