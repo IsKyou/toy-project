@@ -2,7 +2,13 @@
 
 import { SendIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import {
+  type FormEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
@@ -116,6 +122,12 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
   });
   const storedNickname = useStoredNickname();
   const [draft, setDraft] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
+  // 게임 캔버스 하단을 채팅 로그 하단에서 얼마나 띄울지. 로그 높이가 vh
+  // 단위라 창 크기에 따라 달라지고, 그 위의 제목줄 높이는 글꼴에 따라
+  // 달라져서 CSS만으로는 계산할 수 없다.
+  const [canvasBottom, setCanvasBottom] = useState(0);
 
   // 저장된 닉네임이 있으면 그 값으로 바로 입장하고, 없으면 프로필 화면으로
   // 보내 닉네임을 먼저 설정하게 한다. 저장 후에는 이 채팅방으로 되돌아온다.
@@ -134,6 +146,25 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
       `/userprofile?redirect=${encodeURIComponent(`/chatroom/${roomId}`)}`
     );
   }, [storedNickname, join, router, roomId]);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const log = logRef.current;
+    if (!root || !log) {
+      return;
+    }
+    const measure = () => {
+      setCanvasBottom(
+        root.getBoundingClientRect().bottom - log.getBoundingClientRect().bottom
+      );
+    };
+    measure();
+    // 창 크기가 바뀌면 로그 높이(vh)와 바깥 높이가 함께 달라진다.
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    observer.observe(log);
+    return () => observer.disconnect();
+  }, [storedNickname]);
 
   // 접속을 시도 중이거나 이미 접속된 동안에는 상단 탭으로 이동하기 전에
   // 확인을 받는다. 확인하면 leave()로 소켓을 닫아 서버에 퇴장 신호를 보낸
@@ -168,13 +199,21 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
   }
 
   return (
-    <div className="relative flex flex-1 flex-col">
-      {/* 채팅 UI 뒤에 깔리는 게임 레이어. 클릭은 통과시키고 방향키만 받는다. */}
-      <GameWorld
-        ref={gameRef}
-        onMove={sendUserAction}
-        className="pointer-events-none absolute inset-0"
-      />
+    <div ref={rootRef} className="relative flex flex-1 flex-col">
+      {/* 채팅 UI 뒤에 깔리는 게임 레이어. 클릭은 통과시키고 방향키만 받는다.
+          캔버스는 월드와 같은 종횡비를 유지하며 가로를 꽉 채우므로, 이
+          상자의 하단을 채팅 로그 하단에 붙이면 지면도 거기에 맞는다. 창
+          크기가 바뀌어도 캔버스가 통째로 같은 비율로 늘고 줄어든다. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 overflow-hidden"
+        style={{ bottom: canvasBottom }}
+      >
+        <GameWorld
+          ref={gameRef}
+          onMove={sendUserAction}
+          className="w-full"
+        />
+      </div>
 
       {/* 게임 레이어는 화면 전체를 덮어야 하지만 이 줄은 콘텐츠 높이만
           차지해야 한다. 그래야 참여자 패널이 늘어나는 기준이 남은 화면이
@@ -198,7 +237,8 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
             </div>
           </div>
 
-          <MessageScrollerProvider autoScroll>
+          <div ref={logRef}>
+            <MessageScrollerProvider autoScroll>
             <MessageScroller className="h-[46vh] rounded-md border border-border bg-background/70 backdrop-blur-sm">
               <MessageScrollerViewport>
                 <MessageScrollerContent className="p-4">
@@ -238,7 +278,8 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
               </MessageScrollerViewport>
               <MessageScrollerButton />
             </MessageScroller>
-          </MessageScrollerProvider>
+            </MessageScrollerProvider>
+          </div>
 
           <form onSubmit={handleSend} className="flex gap-2">
             <Input

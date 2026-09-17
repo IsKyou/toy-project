@@ -140,5 +140,16 @@ export function GameWorld({ onMove, className, ref }: GameWorldProps) {
     [runOnScene]
   );
 
-  return <div ref={hostRef} aria-hidden className={className} />;
+  // 월드와 같은 종횡비를 유지한다. Phaser의 FIT은 부모 비율이 다르면
+  // 위아래에 여백을 만들고, 그러면 지면이 화면 어디에 놓일지 창 크기마다
+  // 달라진다. 비율을 맞춰두면 캔버스가 이 상자를 정확히 채우므로, 상자를
+  // 어디에 두느냐가 곧 지면 위치가 된다.
+  return (
+    <div
+      ref={hostRef}
+      aria-hidden
+      className={className}
+      style={{ aspectRatio: `${WORLD_WIDTH} / ${WORLD_HEIGHT}` }}
+    />
+  );
 }
