@@ -18,7 +18,6 @@ import type { MoveCommand, PlayerUpsert } from "./types";
 const FONT_FAMILY =
   "system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif";
 
-const GROUND_Y = WORLD_HEIGHT - 80;
 
 interface PlayerEntry {
   name: string;
@@ -69,8 +68,9 @@ export class GameWorldScene extends Phaser.Scene {
   }
 
   create() {
-    this.physics.world.setBounds(0, 0, WORLD_WIDTH, GROUND_Y + BODY_RADIUS);
-    this.drawGround();
+    // 지면은 월드 맨 아래다. 캔버스 하단을 채팅 로그 하단에 붙여두기
+    // 때문에, 캐릭터는 채팅창 아래 테두리를 딛고 선 것처럼 보인다.
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
     const keyboard = this.input.keyboard;
     if (keyboard) {
@@ -196,18 +196,6 @@ export class GameWorldScene extends Phaser.Scene {
 
   // --- 내부 -----------------------------------------------------------------
 
-  private drawGround() {
-    const ground = this.add.rectangle(
-      WORLD_WIDTH / 2,
-      GROUND_Y + BODY_RADIUS + 4,
-      WORLD_WIDTH,
-      8,
-      0x94a3b8,
-      0.35
-    );
-    ground.setDepth(-1);
-  }
-
   private applyInput(entry: PlayerEntry) {
     const cursors = this.cursors;
     if (!cursors) {
@@ -288,7 +276,7 @@ export class GameWorldScene extends Phaser.Scene {
 
     const color = colorFromName(name);
     const spawnX = this.spawnXFor(name);
-    const container = this.add.container(spawnX, GROUND_Y - 200);
+    const container = this.add.container(spawnX, WORLD_HEIGHT - 260);
 
     const bodyShape = this.add.circle(0, 0, BODY_RADIUS, color, 0.92);
     bodyShape.setStrokeStyle(2, 0xffffff, 0.8);
@@ -302,15 +290,17 @@ export class GameWorldScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    // 이름표는 캐릭터 위에 붙인다. 아래에 두면 지면이 캔버스 맨 아래라
+    // 캐릭터가 서 있을 때 이름표가 캔버스 밖으로 나가 잘린다.
     const label = this.add
-      .text(0, BODY_RADIUS + 10, name, {
+      .text(0, -(BODY_RADIUS + 6), name, {
         fontFamily: FONT_FAMILY,
         fontSize: "13px",
         color: "#ffffff",
         backgroundColor: "rgba(15, 23, 42, 0.65)",
         padding: { x: 6, y: 2 },
       })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 1);
 
     const speechText = this.add
       .text(0, 0, "", {
@@ -321,7 +311,7 @@ export class GameWorldScene extends Phaser.Scene {
       .setOrigin(0.5);
     const speechBubble = this.add.rectangle(0, 0, 40, 26, 0xffffff, 0.95);
     speechBubble.setStrokeStyle(1, 0x0f172a, 0.2);
-    const speech = this.add.container(0, -BODY_RADIUS - 26, [
+    const speech = this.add.container(0, -(BODY_RADIUS + 44), [
       speechBubble,
       speechText,
     ]);
