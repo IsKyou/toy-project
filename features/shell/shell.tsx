@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useStoredNickname } from "@/features/identity";
 import { useNavigationGuard } from "@/features/navigation-guard";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +19,7 @@ const NAV_ITEMS = [
 export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [clickCount, setClickCount] = useState(0);
+  const nickname = useStoredNickname();
   const guard = useNavigationGuard();
   // 이동을 시도했는데 가드가 있어서 확인이 필요한 목적지. null이면 확인
   // 창이 닫혀있다는 뜻이다. window.confirm()은 이 앱이 실행되는 일부
@@ -64,13 +65,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setClickCount((count) => count + 1)}
-        >
-          클릭 {clickCount}회 (화면 이동해도 유지됩니다)
-        </Button>
+        <span className="text-sm text-muted-foreground">
+          {nickname ? nickname : "프로필을 설정해주세요"}
+        </span>
       </header>
       <main className="flex flex-1 flex-col">{children}</main>
 
