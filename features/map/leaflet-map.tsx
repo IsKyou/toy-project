@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
 import { LocateFixedIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -90,7 +91,28 @@ function createRoomPopupContent(
   return { container, createButton };
 }
 
+// 방 마커 팝업: 이름/접속자 수 아래에 채팅방으로 이동하는 입장 버튼을 둔다.
+function createRoomInfoPopupContent(room: Room, onEnter: () => void) {
+  const container = document.createElement("div");
+  container.className = "flex w-48 flex-col gap-2 py-1";
+
+  const info = document.createElement("p");
+  info.className = "text-xs text-foreground";
+  info.textContent = `${room.name ?? room.id} (${room.userCount}명 접속 중)`;
+  container.appendChild(info);
+
+  const enterButton = document.createElement("button");
+  enterButton.type = "button";
+  enterButton.className = buttonVariants({ size: "sm" });
+  enterButton.textContent = "입장";
+  enterButton.addEventListener("click", onEnter);
+  container.appendChild(enterButton);
+
+  return container;
+}
+
 export function LeafletMap() {
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
@@ -130,10 +152,12 @@ export function LeafletMap() {
         roomMarkersLayer.clearLayers();
 
         for (const room of rooms.filter(hasCoordinates)) {
-          const label = room.name ?? room.id;
+          const content = createRoomInfoPopupContent(room, () => {
+            router.push(`/chatroom/${room.id}`);
+          });
           L.marker([room.posY, room.posX])
             .addTo(roomMarkersLayer)
-            .bindPopup(`${label} (${room.userCount}명 접속 중)`);
+            .bindPopup(content);
         }
       } catch (error) {
         // 카메라를 움직일 때마다 자동으로 도는 백그라운드 조회라 토스트로
@@ -204,7 +228,7 @@ export function LeafletMap() {
       userMarkerRef.current = null;
       roomMarkersLayerRef.current = null;
     };
-  }, []);
+  }, [router]);
 
   function handleLocate() {
     const map = mapRef.current;
