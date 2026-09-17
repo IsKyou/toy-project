@@ -239,45 +239,45 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
 
           <div ref={logRef}>
             <MessageScrollerProvider autoScroll>
-            <MessageScroller className="h-[46vh] rounded-md border border-border bg-background/70 backdrop-blur-sm">
-              <MessageScrollerViewport>
-                <MessageScrollerContent className="p-4">
-                  {entries.map((entry) => (
-                    <MessageScrollerItem key={entry.id} messageId={entry.id}>
-                      {entry.kind === "chat" ? (
-                        <Message align={entry.self ? "end" : "start"}>
-                          <MessageContent>
-                            <MessageHeader>{entry.name}</MessageHeader>
-                            <Bubble
-                              align={entry.self ? "end" : "start"}
-                              variant={entry.self ? "default" : "secondary"}
+              <MessageScroller className="h-[46vh] rounded-md border border-border">
+                <MessageScrollerViewport>
+                  <MessageScrollerContent className="p-4">
+                    {entries.map((entry) => (
+                      <MessageScrollerItem key={entry.id} messageId={entry.id}>
+                        {entry.kind === "chat" ? (
+                          <Message align={entry.self ? "end" : "start"}>
+                            <MessageContent>
+                              <MessageHeader>{entry.name}</MessageHeader>
+                              <Bubble
+                                align={entry.self ? "end" : "start"}
+                                variant={entry.self ? "default" : "secondary"}
+                              >
+                                <BubbleContent>{entry.text}</BubbleContent>
+                              </Bubble>
+                              <MessageFooter>
+                                {formatTime(entry.timestamp)}
+                              </MessageFooter>
+                            </MessageContent>
+                          </Message>
+                        ) : (
+                          <Marker variant="separator">
+                            <MarkerContent
+                              className={
+                                entry.kind === "error"
+                                  ? "text-destructive"
+                                  : undefined
+                              }
                             >
-                              <BubbleContent>{entry.text}</BubbleContent>
-                            </Bubble>
-                            <MessageFooter>
-                              {formatTime(entry.timestamp)}
-                            </MessageFooter>
-                          </MessageContent>
-                        </Message>
-                      ) : (
-                        <Marker variant="separator">
-                          <MarkerContent
-                            className={
-                              entry.kind === "error"
-                                ? "text-destructive"
-                                : undefined
-                            }
-                          >
-                            {entry.text}
-                          </MarkerContent>
-                        </Marker>
-                      )}
-                    </MessageScrollerItem>
-                  ))}
-                </MessageScrollerContent>
-              </MessageScrollerViewport>
-              <MessageScrollerButton />
-            </MessageScroller>
+                              {entry.text}
+                            </MarkerContent>
+                          </Marker>
+                        )}
+                      </MessageScrollerItem>
+                    ))}
+                  </MessageScrollerContent>
+                </MessageScrollerViewport>
+                <MessageScrollerButton />
+              </MessageScroller>
             </MessageScrollerProvider>
           </div>
 
