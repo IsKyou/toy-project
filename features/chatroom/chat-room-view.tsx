@@ -1,12 +1,12 @@
 "use client";
 
 import { SendIcon } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Marker, MarkerContent } from "@/components/ui/marker";
 import {
@@ -23,6 +23,8 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
+import { Spinner } from "@/components/ui/spinner";
+import { useStoredNickname } from "@/features/identity";
 
 import type { ConnectionStatus } from "./use-chat-room-socket";
 import { useChatRoomSocket } from "./use-chat-room-socket";
@@ -54,20 +56,28 @@ function formatTime(timestamp: number) {
 }
 
 export function ChatRoomView({ roomId }: { roomId: string }) {
+  const router = useRouter();
   const { status, entries, join, sendMessage } = useChatRoomSocket(roomId);
-  const [username, setUsername] = useState("");
-  const [joinedAs, setJoinedAs] = useState<string | null>(null);
+  const storedNickname = useStoredNickname();
   const [draft, setDraft] = useState("");
 
-  function handleJoin(event: FormEvent) {
-    event.preventDefault();
-    const trimmed = username.trim();
-    if (!trimmed) {
+  // 저장된 닉네임이 있으면 그 값으로 바로 입장하고, 없으면 프로필 화면으로
+  // 보내 닉네임을 먼저 설정하게 한다. 저장 후에는 이 채팅방으로 되돌아온다.
+  useEffect(() => {
+    if (storedNickname === undefined) {
+      // 아직 로컬 저장소 값이 확정되지 않았다(하이드레이션 중). 여기서
+      // "닉네임 없음"으로 성급히 판단하면, 실제로는 저장돼 있는데도
+      // 새로고침할 때마다 프로필로 잘못 튕겨나가게 된다.
       return;
     }
-    setJoinedAs(trimmed);
-    join(trimmed);
-  }
+    if (storedNickname) {
+      join(storedNickname);
+      return;
+    }
+    router.push(
+      `/userprofile?redirect=${encodeURIComponent(`/chatroom/${roomId}`)}`
+    );
+  }, [storedNickname, join, router, roomId]);
 
   function handleSend(event: FormEvent) {
     event.preventDefault();
@@ -78,27 +88,11 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
     setDraft("");
   }
 
-  if (!joinedAs) {
+  if (!storedNickname) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
-        <form onSubmit={handleJoin} className="w-full max-w-xs">
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="username">닉네임</FieldLabel>
-              <Input
-                id="username"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder="닉네임을 입력하세요"
-                maxLength={32}
-                autoFocus
-              />
-            </Field>
-            <Button type="submit" disabled={!username.trim()}>
-              입장
-            </Button>
-          </FieldGroup>
-        </form>
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-sm text-muted-foreground">
+        <Spinner />
+        <p>입장을 준비하고 있습니다...</p>
       </div>
     );
   }

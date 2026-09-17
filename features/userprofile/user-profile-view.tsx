@@ -1,6 +1,7 @@
 "use client";
 
-import { type FormEvent, useState, useSyncExternalStore } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { type FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,50 +12,21 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
+import { saveNickname, useStoredNickname } from "@/features/identity";
 
-const NICKNAME_STORAGE_KEY = "userprofile:nickname";
 const DEFAULT_NICKNAME = "익명";
 
-type Listener = () => void;
-const listeners = new Set<Listener>();
-
-function notifyListeners() {
-  for (const listener of listeners) {
-    listener();
-  }
-}
-
-function subscribe(listener: Listener) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function getSnapshot() {
-  try {
-    return window.localStorage.getItem(NICKNAME_STORAGE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function getServerSnapshot() {
-  return "";
-}
-
-function saveNickname(value: string) {
-  window.localStorage.setItem(NICKNAME_STORAGE_KEY, value);
-  notifyListeners();
-}
-
 export function UserProfileView() {
-  // localStorage는 컴포넌트 바깥의 외부 시스템이라 useSyncExternalStore로
-  // 구독한다. useEffect에서 읽어 setState하면 SSR 결과와 클라이언트 첫
-  // 렌더가 같아야 하는데, 그 사이에 불필요한 재렌더링이 한 번 더 생긴다.
-  const nickname = useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot
-  );
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // 외부(예: chatroom)로 돌아갈 경로만 허용한다. 내부 경로가 아니면
+  // 무시해 열린 리다이렉트로 악용되지 않게 한다.
+  const rawRedirect = searchParams.get("redirect");
+  const redirectTo = rawRedirect?.startsWith("/") ? rawRedirect : null;
+
+  // 하이드레이션이 끝나기 전(undefined)에는 빈 문자열로 취급해 보여준다.
+  // 곧이어 실제 값으로 재렌더링된다.
+  const nickname = useStoredNickname() ?? "";
   // null이면 "아직 사용자가 입력을 건드리지 않음"을 뜻하고, 이때 입력값은
   // 저장된 닉네임을 그대로 따라간다.
   const [draft, setDraft] = useState<string | null>(null);
@@ -72,6 +44,11 @@ export function UserProfileView() {
         description: "브라우저 저장소를 사용할 수 없습니다.",
         type: "error",
       });
+      return;
+    }
+
+    if (redirectTo) {
+      router.push(redirectTo);
       return;
     }
 
@@ -95,6 +72,12 @@ export function UserProfileView() {
 
       <form onSubmit={handleSave} className="w-full max-w-xs">
         <FieldGroup>
+          {redirectTo && (
+            <p className="text-sm text-muted-foreground">
+              채팅방에 입장하려면 닉네임이 필요합니다. 저장하면 이어서
+              입장합니다.
+            </p>
+          )}
           <Field>
             <FieldLabel htmlFor="nickname">닉네임</FieldLabel>
             <Input
@@ -106,11 +89,12 @@ export function UserProfileView() {
               autoFocus
             />
             <FieldDescription>
-              이 브라우저에만 저장되는 닉네임입니다.
+              이 브라우저에만 저장되는 닉네임입니다. chatroom 입장 시 자동으로
+              쓰입니다.
             </FieldDescription>
           </Field>
           <Button type="submit" disabled={!value.trim()}>
-            저장
+            {redirectTo ? "저장하고 입장" : "저장"}
           </Button>
         </FieldGroup>
       </form>

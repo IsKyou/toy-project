@@ -169,8 +169,14 @@ export function useChatRoomSocket(roomId: string) {
   useEffect(() => {
     return () => {
       wsRef.current?.close();
+      // StrictMode 개발 모드는 mount→cleanup→재mount를 한 번 시뮬레이션
+      // 한다. wsRef를 null로 되돌리지 않으면 재mount 이후의 join()이
+      // "이미 연결됨" 가드에 막혀, 방금 닫힌 소켓만 남고 새 연결이 열리지
+      // 않는다.
+      wsRef.current = null;
       if (pingTimerRef.current) {
         clearInterval(pingTimerRef.current);
+        pingTimerRef.current = null;
       }
     };
   }, []);
