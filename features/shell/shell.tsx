@@ -10,7 +10,6 @@ import { useNavigationGuard } from "@/features/navigation-guard";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/", label: "홈" },
   { href: "/userprofile", label: "프로필" },
   { href: "/map", label: "map" },
   { href: "/chatroom", label: "chatroom" },
