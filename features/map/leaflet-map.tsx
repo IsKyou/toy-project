@@ -117,7 +117,6 @@ export function LeafletMap() {
   const mapRef = useRef<L.Map | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const roomMarkersLayerRef = useRef<L.LayerGroup | null>(null);
-  const isFetchingRoomsRef = useRef(false);
   const [isLocating, setIsLocating] = useState(false);
 
   useEffect(() => {
@@ -139,13 +138,19 @@ export function LeafletMap() {
     const roomMarkersLayer = L.layerGroup().addTo(map);
     roomMarkersLayerRef.current = roomMarkersLayer;
 
+    // effect 지역 변수로 둬서 StrictMode의 mount→cleanup→재mount 사이에
+    // 값이 새로 초기화되게 한다. useRef로 두면 컴포넌트 생명주기 동안
+    // 유지되어, 재mount된 두 번째 effect가 첫 번째 effect의 아직 끝나지
+    // 않은 요청 때문에 최초 조회를 건너뛰는 문제가 있었다.
+    let isFetchingRooms = false;
+
     async function refreshRoomMarkers() {
       // moveend/zoomend가 거의 동시에 겹쳐 들어와도 중복 조회는 한 번만
       // 진행한다.
-      if (isFetchingRoomsRef.current) {
+      if (isFetchingRooms) {
         return;
       }
-      isFetchingRoomsRef.current = true;
+      isFetchingRooms = true;
 
       try {
         const rooms = await getRoomList({ limit: ROOM_LIST_LIMIT });
@@ -164,7 +169,7 @@ export function LeafletMap() {
         // 매번 방해하지 않고 콘솔에만 남긴다.
         console.error("방 목록을 불러오지 못했습니다.", error);
       } finally {
-        isFetchingRoomsRef.current = false;
+        isFetchingRooms = false;
       }
     }
 
