@@ -2,12 +2,14 @@
 
 import "leaflet/dist/leaflet.css";
 
+import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 import L from "leaflet";
 import { LocateFixedIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import { ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { createRoom, CreateRoomError, getRoomList } from "@/features/apiutil";
@@ -118,6 +120,7 @@ export function LeafletMap() {
   const userMarkerRef = useRef<L.Marker | null>(null);
   const roomMarkersLayerRef = useRef<L.LayerGroup | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) {
@@ -151,6 +154,7 @@ export function LeafletMap() {
         return;
       }
       isFetchingRooms = true;
+      setIsLoadingRooms(true);
 
       try {
         const rooms = await getRoomList({ limit: ROOM_LIST_LIMIT });
@@ -170,6 +174,7 @@ export function LeafletMap() {
         console.error("방 목록을 불러오지 못했습니다.", error);
       } finally {
         isFetchingRooms = false;
+        setIsLoadingRooms(false);
       }
     }
 
@@ -294,6 +299,20 @@ export function LeafletMap() {
       >
         {isLocating ? <Spinner /> : <LocateFixedIcon />}
       </Button>
+
+      {isLoadingRooms && (
+        <div className="pointer-events-none absolute inset-0 z-[1000] flex items-center justify-center">
+          <ProgressPrimitive.Root
+            value={null}
+            aria-label="채팅방 목록을 불러오는 중"
+            className="w-40 rounded-md border border-border bg-background/95 px-3 py-2 shadow-md"
+          >
+            <ProgressTrack>
+              <ProgressIndicator className="w-1/3 animate-indeterminate-progress" />
+            </ProgressTrack>
+          </ProgressPrimitive.Root>
+        </div>
+      )}
     </div>
   );
 }
