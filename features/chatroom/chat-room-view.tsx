@@ -56,6 +56,17 @@ function formatTime(timestamp: number) {
   });
 }
 
+// 동적 라우트 세그먼트가 퍼센트 인코딩된 채로 넘어올 때가 있어(예:
+// "여의도"가 "%EC%97%AC%EC%9D%98%EB%8F%84"로), 화면에 보여줄 때만 풀어서
+// 보여준다. 소켓 연결 등 실제 식별자로 쓰는 roomId 자체는 그대로 둔다.
+function decodeRoomIdForDisplay(roomId: string) {
+  try {
+    return decodeURIComponent(roomId);
+  } catch {
+    return roomId;
+  }
+}
+
 export function ChatRoomView({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { status, entries, participants, join, sendMessage, leave } =
@@ -117,7 +128,9 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
     <div className="flex flex-1 gap-6 p-6">
       <div className="flex flex-1 flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold tracking-tight">{roomId}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">
+            {decodeRoomIdForDisplay(roomId)}
+          </h1>
           <Badge variant={STATUS_BADGE_VARIANT[status]}>
             {STATUS_LABEL[status]}
           </Badge>
