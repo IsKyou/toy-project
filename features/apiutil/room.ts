@@ -1,13 +1,17 @@
 export type RoomType = "private" | "named";
 
-// GET /api/room/list 응답은 5개 필드로 축약돼 있다. createdAt 등 다른 필드가
-// 필요하면 room-manager/list(관리자용) 엔드포인트를 따로 써야 한다.
+// 현재 문서 기준 GET /api/room/list 응답은 5개 필드로 축약돼 있다. posX/posY는
+// 아직 이 엔드포인트에 없고 room-manager/list(관리자용)에만 있지만, room/list
+// 쪽에 posX/posY를 추가하는 API 변경이 예정돼 있어 미리 옵셔널로 선언해둔다.
+// 변경 전까지는 항상 undefined로 온다.
 export interface Room {
   id: string;
   type: RoomType;
   name: string | null;
   userCount: number;
   isActive: boolean;
+  posX?: number | null;
+  posY?: number | null;
 }
 
 export interface RoomListSuccessResponse {

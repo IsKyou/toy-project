@@ -9,7 +9,8 @@ import { useEffect, useRef, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import { createRoom, CreateRoomError } from "@/features/apiutil";
+import { createRoom, CreateRoomError, getRoomList } from "@/features/apiutil";
+import type { Room } from "@/features/apiutil";
 
 // components/ui/input.tsx의 class와 동일하게 맞춘다. 팝업 안 input은 순수
 // DOM이라 Input 컴포넌트를 그대로 못 쓴다.
@@ -19,6 +20,13 @@ const INPUT_CLASS_NAME =
 const SEOUL: L.LatLngTuple = [37.5665, 126.978];
 const DEFAULT_ZOOM = 13;
 const LOCATE_ZOOM = 16;
+const ROOM_LIST_LIMIT = 100;
+
+function hasCoordinates(
+  room: Room
+): room is Room & { posX: number; posY: number } {
+  return typeof room.posX === "number" && typeof room.posY === "number";
+}
 
 // Leaflet의 기본 마커 아이콘 경로는 번들러 환경에서 깨지므로 CDN 경로로 명시한다.
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
@@ -86,6 +94,8 @@ export function LeafletMap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
+  const roomMarkersLayerRef = useRef<L.LayerGroup | null>(null);
+  const isFetchingRoomsRef = useRef(false);
   const [isLocating, setIsLocating] = useState(false);
 
   useEffect(() => {
@@ -103,6 +113,40 @@ export function LeafletMap() {
     }).addTo(map);
 
     L.marker(SEOUL).addTo(map).bindPopup("서울");
+
+    const roomMarkersLayer = L.layerGroup().addTo(map);
+    roomMarkersLayerRef.current = roomMarkersLayer;
+
+    async function refreshRoomMarkers() {
+      // moveend/zoomend가 거의 동시에 겹쳐 들어와도 중복 조회는 한 번만
+      // 진행한다.
+      if (isFetchingRoomsRef.current) {
+        return;
+      }
+      isFetchingRoomsRef.current = true;
+
+      try {
+        const rooms = await getRoomList({ limit: ROOM_LIST_LIMIT });
+        roomMarkersLayer.clearLayers();
+
+        for (const room of rooms.filter(hasCoordinates)) {
+          const label = room.name ?? room.id;
+          L.marker([room.posY, room.posX])
+            .addTo(roomMarkersLayer)
+            .bindPopup(`${label} (${room.userCount}명 접속 중)`);
+        }
+      } catch (error) {
+        // 카메라를 움직일 때마다 자동으로 도는 백그라운드 조회라 토스트로
+        // 매번 방해하지 않고 콘솔에만 남긴다.
+        console.error("방 목록을 불러오지 못했습니다.", error);
+      } finally {
+        isFetchingRoomsRef.current = false;
+      }
+    }
+
+    map.on("moveend", refreshRoomMarkers);
+    map.on("zoomend", refreshRoomMarkers);
+    refreshRoomMarkers();
 
     function handleMapClick(event: L.LeafletMouseEvent) {
       const { lat, lng } = event.latlng;
@@ -128,6 +172,7 @@ export function LeafletMap() {
               type: "success",
             });
             map.closePopup();
+            refreshRoomMarkers();
           } catch (error) {
             toast.add({
               title: "방 생성에 실패했습니다.",
@@ -152,9 +197,12 @@ export function LeafletMap() {
 
     return () => {
       map.off("click", handleMapClick);
+      map.off("moveend", refreshRoomMarkers);
+      map.off("zoomend", refreshRoomMarkers);
       map.remove();
       mapRef.current = null;
       userMarkerRef.current = null;
+      roomMarkersLayerRef.current = null;
     };
   }, []);
 
