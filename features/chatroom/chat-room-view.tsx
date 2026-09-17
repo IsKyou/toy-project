@@ -2,7 +2,7 @@
 
 import { SendIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
@@ -24,6 +24,8 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { Spinner } from "@/components/ui/spinner";
+import { GameWorld } from "@/features/gameworld";
+import type { GameWorldHandle } from "@/features/gameworld";
 import { useStoredNickname } from "@/features/identity";
 import { setNavigationGuard } from "@/features/navigation-guard";
 
@@ -69,8 +71,49 @@ function decodeRoomIdForDisplay(roomId: string) {
 
 export function ChatRoomView({ roomId }: { roomId: string }) {
   const router = useRouter();
-  const { status, entries, participants, join, sendMessage, leave } =
-    useChatRoomSocket(roomId);
+  const gameRef = useRef<GameWorldHandle | null>(null);
+  // 소켓은 이 화면이 소유하고, 게임은 소켓을 전혀 모른다. 받은 이벤트를
+  // 여기서 게임 명령으로 번역하는 것이 둘 사이의 유일한 연결이다.
+  const {
+    status,
+    entries,
+    participants,
+    join,
+    sendMessage,
+    sendUserAction,
+    leave,
+  } = useChatRoomSocket(roomId, {
+    onReady: (name) => gameRef.current?.setMe(name),
+    onQuit: (name) => gameRef.current?.removePlayer(name),
+    onChat: (name, text) => gameRef.current?.showSpeech(name, text),
+    onUserAction: (action) => {
+      // 속도·가속이 하나라도 있으면 그 운동 상태를 이어서 재생하고, 전부
+      // 없으면 이미 지나간 위치 스냅샷이라 그 자리에 세우기만 한다.
+      const hasMotion = [
+        action.veloX,
+        action.veloY,
+        action.accX,
+        action.accY,
+      ].some((value) => value != null);
+
+      gameRef.current?.upsertPlayer({
+        name: action.userName,
+        posX: action.posX,
+        posY: action.posY,
+        move: hasMotion
+          ? {
+              posX: action.posX,
+              posY: action.posY,
+              veloX: action.veloX ?? 0,
+              veloY: action.veloY ?? 0,
+              accX: action.accX ?? 0,
+              accY: action.accY ?? 0,
+              seq: action.seq,
+            }
+          : undefined,
+      });
+    },
+  });
   const storedNickname = useStoredNickname();
   const [draft, setDraft] = useState("");
 
@@ -125,19 +168,31 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
   }
 
   return (
-    <div className="flex flex-1 gap-6 p-6">
-      <div className="flex flex-1 flex-col gap-4">
+    <div className="relative flex flex-1 gap-6 p-6">
+      {/* 채팅 UI 뒤에 깔리는 게임 레이어. 클릭은 통과시키고 방향키만 받는다. */}
+      <GameWorld
+        ref={gameRef}
+        onMove={sendUserAction}
+        className="pointer-events-none absolute inset-0"
+      />
+
+      <div className="relative flex flex-1 flex-col gap-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold tracking-tight">
             {decodeRoomIdForDisplay(roomId)}
           </h1>
-          <Badge variant={STATUS_BADGE_VARIANT[status]}>
-            {STATUS_LABEL[status]}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              방향키로 캐릭터를 움직일 수 있습니다
+            </span>
+            <Badge variant={STATUS_BADGE_VARIANT[status]}>
+              {STATUS_LABEL[status]}
+            </Badge>
+          </div>
         </div>
 
         <MessageScrollerProvider autoScroll>
-          <MessageScroller className="h-[50vh] rounded-md border border-border">
+          <MessageScroller className="h-[46vh] rounded-md border border-border bg-background/70 backdrop-blur-sm">
             <MessageScrollerViewport>
               <MessageScrollerContent className="p-4">
                 {entries.map((entry) => (
@@ -192,7 +247,7 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
         </form>
       </div>
 
-      <aside className="hidden w-48 shrink-0 flex-col gap-3 sm:flex">
+      <aside className="relative hidden w-48 shrink-0 flex-col gap-3 rounded-md border border-border bg-background/70 p-3 backdrop-blur-sm sm:flex">
         <h2 className="text-sm font-medium text-muted-foreground">
           참여자 {participants.length}명
         </h2>
