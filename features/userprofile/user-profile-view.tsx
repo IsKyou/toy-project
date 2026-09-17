@@ -54,6 +54,9 @@ export function UserProfileView() {
 
     setDraft(null);
     toast.add({ title: "프로필을 저장했습니다.", type: "success" });
+    // 저장이 끝나면 map 탭으로 넘긴다. 돌아갈 곳이 따로 지정된 경우는
+    // 위에서 이미 처리했다.
+    router.push("/map");
   }
 
   const displayName = nickname || DEFAULT_NICKNAME;
