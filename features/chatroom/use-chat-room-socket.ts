@@ -34,12 +34,25 @@ function nextEntryId() {
 export function useChatRoomSocket(roomId: string) {
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [entries, setEntries] = useState<ChatEntry[]>([]);
+  // 서버가 현재 전체 참여자 목록을 따로 내려주지 않아서, 이 접속이 살아있는
+  // 동안 받은 ready(나)/joined/quit 이벤트만으로 조합한다. 즉 내가 접속하기
+  // 전부터 있던 사람은 그 사람이 별도 행동(퇴장 등)을 하기 전까지 목록에
+  // 안 뜬다.
+  const [participants, setParticipants] = useState<string[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const usernameRef = useRef<string | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const appendEntry = useCallback((entry: Omit<ChatEntry, "id">) => {
     setEntries((prev) => [...prev, { ...entry, id: nextEntryId() }]);
+  }, []);
+
+  const addParticipant = useCallback((name: string) => {
+    setParticipants((prev) => (prev.includes(name) ? prev : [...prev, name]));
+  }, []);
+
+  const removeParticipant = useCallback((name: string) => {
+    setParticipants((prev) => prev.filter((entry) => entry !== name));
   }, []);
 
   const join = useCallback(
@@ -75,6 +88,9 @@ export function useChatRoomSocket(roomId: string) {
 
         if ("ready" in data && data.ready) {
           setStatus("ready");
+          if (usernameRef.current) {
+            addParticipant(usernameRef.current);
+          }
           return;
         }
         // 백로그(과거 메시지)는 type 필드 없이 id/createdAt과 함께 원본
@@ -92,6 +108,7 @@ export function useChatRoomSocket(roomId: string) {
           return;
         }
         if ("joined" in data) {
+          addParticipant(data.joined);
           appendEntry({
             kind: "system",
             text: `${data.joined}님이 입장했습니다.`,
@@ -100,6 +117,7 @@ export function useChatRoomSocket(roomId: string) {
           return;
         }
         if ("quit" in data) {
+          removeParticipant(data.quit);
           appendEntry({
             kind: "system",
             text: `${data.quit}님이 퇴장했습니다.`,
@@ -155,7 +173,7 @@ export function useChatRoomSocket(roomId: string) {
         setStatus("error");
       };
     },
-    [roomId, appendEntry]
+    [roomId, appendEntry, addParticipant, removeParticipant]
   );
 
   const sendMessage = useCallback((text: string) => {
@@ -181,5 +199,5 @@ export function useChatRoomSocket(roomId: string) {
     };
   }, []);
 
-  return { status, entries, join, sendMessage };
+  return { status, entries, participants, join, sendMessage };
 }

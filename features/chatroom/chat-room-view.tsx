@@ -57,7 +57,8 @@ function formatTime(timestamp: number) {
 
 export function ChatRoomView({ roomId }: { roomId: string }) {
   const router = useRouter();
-  const { status, entries, join, sendMessage } = useChatRoomSocket(roomId);
+  const { status, entries, participants, join, sendMessage } =
+    useChatRoomSocket(roomId);
   const storedNickname = useStoredNickname();
   const [draft, setDraft] = useState("");
 
@@ -98,66 +99,92 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">{roomId}</h1>
-        <Badge variant={STATUS_BADGE_VARIANT[status]}>
-          {STATUS_LABEL[status]}
-        </Badge>
+    <div className="flex flex-1 gap-6 p-6">
+      <div className="flex flex-1 flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold tracking-tight">{roomId}</h1>
+          <Badge variant={STATUS_BADGE_VARIANT[status]}>
+            {STATUS_LABEL[status]}
+          </Badge>
+        </div>
+
+        <MessageScrollerProvider autoScroll>
+          <MessageScroller className="h-[50vh] rounded-md border border-border">
+            <MessageScrollerViewport>
+              <MessageScrollerContent className="p-4">
+                {entries.map((entry) => (
+                  <MessageScrollerItem key={entry.id} messageId={entry.id}>
+                    {entry.kind === "chat" ? (
+                      <Message align={entry.self ? "end" : "start"}>
+                        <MessageContent>
+                          <MessageHeader>{entry.name}</MessageHeader>
+                          <Bubble
+                            align={entry.self ? "end" : "start"}
+                            variant={entry.self ? "default" : "secondary"}
+                          >
+                            <BubbleContent>{entry.text}</BubbleContent>
+                          </Bubble>
+                          <MessageFooter>
+                            {formatTime(entry.timestamp)}
+                          </MessageFooter>
+                        </MessageContent>
+                      </Message>
+                    ) : (
+                      <Marker variant="separator">
+                        <MarkerContent
+                          className={
+                            entry.kind === "error"
+                              ? "text-destructive"
+                              : undefined
+                          }
+                        >
+                          {entry.text}
+                        </MarkerContent>
+                      </Marker>
+                    )}
+                  </MessageScrollerItem>
+                ))}
+              </MessageScrollerContent>
+            </MessageScrollerViewport>
+            <MessageScrollerButton />
+          </MessageScroller>
+        </MessageScrollerProvider>
+
+        <form onSubmit={handleSend} className="flex gap-2">
+          <Input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="메시지를 입력하세요"
+            disabled={status !== "ready"}
+          />
+          <Button type="submit" disabled={status !== "ready" || !draft.trim()}>
+            <SendIcon data-icon="inline-start" />
+            전송
+          </Button>
+        </form>
       </div>
 
-      <MessageScrollerProvider autoScroll>
-        <MessageScroller className="h-[50vh] rounded-md border border-border">
-          <MessageScrollerViewport>
-            <MessageScrollerContent className="p-4">
-              {entries.map((entry) => (
-                <MessageScrollerItem key={entry.id} messageId={entry.id}>
-                  {entry.kind === "chat" ? (
-                    <Message align={entry.self ? "end" : "start"}>
-                      <MessageContent>
-                        <MessageHeader>{entry.name}</MessageHeader>
-                        <Bubble
-                          align={entry.self ? "end" : "start"}
-                          variant={entry.self ? "default" : "secondary"}
-                        >
-                          <BubbleContent>{entry.text}</BubbleContent>
-                        </Bubble>
-                        <MessageFooter>
-                          {formatTime(entry.timestamp)}
-                        </MessageFooter>
-                      </MessageContent>
-                    </Message>
-                  ) : (
-                    <Marker variant="separator">
-                      <MarkerContent
-                        className={
-                          entry.kind === "error" ? "text-destructive" : undefined
-                        }
-                      >
-                        {entry.text}
-                      </MarkerContent>
-                    </Marker>
-                  )}
-                </MessageScrollerItem>
-              ))}
-            </MessageScrollerContent>
-          </MessageScrollerViewport>
-          <MessageScrollerButton />
-        </MessageScroller>
-      </MessageScrollerProvider>
-
-      <form onSubmit={handleSend} className="flex gap-2">
-        <Input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="메시지를 입력하세요"
-          disabled={status !== "ready"}
-        />
-        <Button type="submit" disabled={status !== "ready" || !draft.trim()}>
-          <SendIcon data-icon="inline-start" />
-          전송
-        </Button>
-      </form>
+      <aside className="hidden w-48 shrink-0 flex-col gap-3 sm:flex">
+        <h2 className="text-sm font-medium text-muted-foreground">
+          참여자 {participants.length}명
+        </h2>
+        <ul className="flex flex-col gap-1">
+          {participants.map((name) => (
+            <li
+              key={name}
+              className="flex items-center gap-2 truncate text-sm"
+            >
+              <span className="size-1.5 shrink-0 rounded-full bg-primary" />
+              <span className="truncate">
+                {name}
+                {name === storedNickname && (
+                  <span className="text-muted-foreground"> (나)</span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </aside>
     </div>
   );
 }
