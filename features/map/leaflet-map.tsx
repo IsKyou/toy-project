@@ -9,7 +9,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
+import {
+  ProgressIndicator,
+  ProgressLabel,
+  ProgressTrack,
+} from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { createRoom, CreateRoomError, getRoomList } from "@/features/apiutil";
@@ -302,12 +306,15 @@ export function LeafletMap() {
         <div className="pointer-events-none absolute inset-0 z-[1000] flex items-center justify-center">
           <ProgressPrimitive.Root
             value={null}
-            aria-label="채팅방 목록을 불러오는 중"
-            className="w-40 rounded-md border border-border bg-background/95 px-3 py-2 shadow-md"
+            className="w-56 rounded-md border border-border bg-background/95 px-3 py-2 shadow-md"
           >
             <ProgressTrack>
               <ProgressIndicator className="w-1/3 animate-indeterminate-progress" />
             </ProgressTrack>
+            {/* 진행바의 접근성 이름도 겸한다. */}
+            <ProgressLabel className="mt-2 block text-center text-xs text-muted-foreground">
+              접속 가능한 채팅방을 조회중 입니다.
+            </ProgressLabel>
           </ProgressPrimitive.Root>
         </div>
       )}
