@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -16,19 +16,34 @@ const NAV_ITEMS = [
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
   const [clickCount, setClickCount] = useState(0);
   const guard = useNavigationGuard();
+  // 이동을 시도했는데 가드가 있어서 확인이 필요한 목적지. null이면 확인
+  // 창이 닫혀있다는 뜻이다. window.confirm()은 이 앱이 실행되는 일부
+  // 환경(임베드된 프리뷰 등)에서 조용히 억제돼 항상 false를 반환하기
+  // 때문에, 직접 만든 다이얼로그로 대신한다.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
-  function handleNavigate(event: { preventDefault: () => void }) {
+  function handleNavigate(
+    event: { preventDefault: () => void },
+    href: string
+  ) {
     if (!guard) {
       return;
     }
-    if (!window.confirm(guard.message)) {
-      event.preventDefault();
+    event.preventDefault();
+    setPendingHref(href);
+  }
+
+  function handleConfirmLeave() {
+    if (!pendingHref) {
       return;
     }
-    guard.onLeave();
+    guard?.onLeave();
+    router.push(pendingHref);
+    setPendingHref(null);
   }
 
   return (
@@ -39,7 +54,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
-              onNavigate={handleNavigate}
+              onNavigate={(event) => handleNavigate(event, item.href)}
               className={cn(
                 "text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
                 pathname === item.href && "text-foreground"
@@ -58,6 +73,30 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </Button>
       </header>
       <main className="flex flex-1 flex-col">{children}</main>
+
+      {pendingHref && guard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-lg border border-border bg-background p-5 shadow-lg">
+            <p className="text-sm text-foreground">{guard.message}</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPendingHref(null)}
+              >
+                취소
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleConfirmLeave}
+              >
+                나가기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
