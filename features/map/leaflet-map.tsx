@@ -136,8 +136,6 @@ export function LeafletMap() {
       maxZoom: 19,
     }).addTo(map);
 
-    L.marker(SEOUL).addTo(map).bindPopup("서울");
-
     const roomMarkersLayer = L.layerGroup().addTo(map);
     roomMarkersLayerRef.current = roomMarkersLayer;
 
