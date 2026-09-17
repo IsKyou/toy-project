@@ -168,7 +168,7 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
   }
 
   return (
-    <div className="relative flex flex-1 gap-6 p-6">
+    <div className="relative flex flex-1 flex-col">
       {/* 채팅 UI 뒤에 깔리는 게임 레이어. 클릭은 통과시키고 방향키만 받는다. */}
       <GameWorld
         ref={gameRef}
@@ -176,98 +176,111 @@ export function ChatRoomView({ roomId }: { roomId: string }) {
         className="pointer-events-none absolute inset-0"
       />
 
-      <div className="relative flex flex-1 flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold tracking-tight">
-            {decodeRoomIdForDisplay(roomId)}
-          </h1>
-          <div className="flex items-center gap-2">
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              방향키로 캐릭터를 움직일 수 있습니다
-            </span>
-            <Badge variant={STATUS_BADGE_VARIANT[status]}>
-              {STATUS_LABEL[status]}
-            </Badge>
+      {/* 게임 레이어는 화면 전체를 덮어야 하지만 이 줄은 콘텐츠 높이만
+          차지해야 한다. 그래야 참여자 패널이 늘어나는 기준이 남은 화면이
+          아니라 왼쪽 컬럼이 되어, 두 하단이 같은 높이에서 끝난다. */}
+      <div className="relative flex p-6">
+        {/* 오른쪽 여백은 참여자 패널 너비(w-48)와 그 사이 간격을 합한
+            값이다. 패널을 absolute로 띄웠기 때문에 gap으로는 자리를
+            비워둘 수 없다. */}
+        <div className="flex flex-1 flex-col gap-4 sm:pr-54">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-semibold tracking-tight">
+              {decodeRoomIdForDisplay(roomId)}
+            </h1>
+            <div className="flex items-center gap-2">
+              <span className="hidden text-xs text-muted-foreground sm:inline">
+                방향키로 캐릭터를 움직일 수 있습니다
+              </span>
+              <Badge variant={STATUS_BADGE_VARIANT[status]}>
+                {STATUS_LABEL[status]}
+              </Badge>
+            </div>
           </div>
+
+          <MessageScrollerProvider autoScroll>
+            <MessageScroller className="h-[46vh] rounded-md border border-border bg-background/70 backdrop-blur-sm">
+              <MessageScrollerViewport>
+                <MessageScrollerContent className="p-4">
+                  {entries.map((entry) => (
+                    <MessageScrollerItem key={entry.id} messageId={entry.id}>
+                      {entry.kind === "chat" ? (
+                        <Message align={entry.self ? "end" : "start"}>
+                          <MessageContent>
+                            <MessageHeader>{entry.name}</MessageHeader>
+                            <Bubble
+                              align={entry.self ? "end" : "start"}
+                              variant={entry.self ? "default" : "secondary"}
+                            >
+                              <BubbleContent>{entry.text}</BubbleContent>
+                            </Bubble>
+                            <MessageFooter>
+                              {formatTime(entry.timestamp)}
+                            </MessageFooter>
+                          </MessageContent>
+                        </Message>
+                      ) : (
+                        <Marker variant="separator">
+                          <MarkerContent
+                            className={
+                              entry.kind === "error"
+                                ? "text-destructive"
+                                : undefined
+                            }
+                          >
+                            {entry.text}
+                          </MarkerContent>
+                        </Marker>
+                      )}
+                    </MessageScrollerItem>
+                  ))}
+                </MessageScrollerContent>
+              </MessageScrollerViewport>
+              <MessageScrollerButton />
+            </MessageScroller>
+          </MessageScrollerProvider>
+
+          <form onSubmit={handleSend} className="flex gap-2">
+            <Input
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="메시지를 입력하세요"
+              disabled={status !== "ready"}
+            />
+            <Button type="submit" disabled={status !== "ready" || !draft.trim()}>
+              <SendIcon data-icon="inline-start" />
+              전송
+            </Button>
+          </form>
         </div>
 
-        <MessageScrollerProvider autoScroll>
-          <MessageScroller className="h-[46vh] rounded-md border border-border bg-background/70 backdrop-blur-sm">
-            <MessageScrollerViewport>
-              <MessageScrollerContent className="p-4">
-                {entries.map((entry) => (
-                  <MessageScrollerItem key={entry.id} messageId={entry.id}>
-                    {entry.kind === "chat" ? (
-                      <Message align={entry.self ? "end" : "start"}>
-                        <MessageContent>
-                          <MessageHeader>{entry.name}</MessageHeader>
-                          <Bubble
-                            align={entry.self ? "end" : "start"}
-                            variant={entry.self ? "default" : "secondary"}
-                          >
-                            <BubbleContent>{entry.text}</BubbleContent>
-                          </Bubble>
-                          <MessageFooter>
-                            {formatTime(entry.timestamp)}
-                          </MessageFooter>
-                        </MessageContent>
-                      </Message>
-                    ) : (
-                      <Marker variant="separator">
-                        <MarkerContent
-                          className={
-                            entry.kind === "error"
-                              ? "text-destructive"
-                              : undefined
-                          }
-                        >
-                          {entry.text}
-                        </MarkerContent>
-                      </Marker>
-                    )}
-                  </MessageScrollerItem>
-                ))}
-              </MessageScrollerContent>
-            </MessageScrollerViewport>
-            <MessageScrollerButton />
-          </MessageScroller>
-        </MessageScrollerProvider>
-
-        <form onSubmit={handleSend} className="flex gap-2">
-          <Input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="메시지를 입력하세요"
-            disabled={status !== "ready"}
-          />
-          <Button type="submit" disabled={status !== "ready" || !draft.trim()}>
-            <SendIcon data-icon="inline-start" />
-            전송
-          </Button>
-        </form>
+        {/* 흐름에서 빼내야 이 패널이 줄 높이를 결정하지 못한다. 흐름에
+            두면 참여자가 많을 때 패널이 스스로 늘어나고 그만큼 줄도
+            늘어나서, 목록이 스크롤되는 대신 입력창 아래까지 자란다. */}
+        <aside className="absolute inset-y-6 right-6 hidden w-48 flex-col gap-3 rounded-md border border-border bg-background/70 p-3 backdrop-blur-sm sm:flex">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            참여자 {participants.length}명
+          </h2>
+          {/* 참여자가 많아도 이 패널이 왼쪽 컬럼보다 길어지지 않도록,
+              넘치는 만큼은 목록 안에서 스크롤한다. */}
+          <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+            {participants.map((name) => (
+              <li
+                key={name}
+                className="flex items-center gap-2 truncate text-sm"
+              >
+                <span className="size-1.5 shrink-0 rounded-full bg-primary" />
+                <span className="truncate">
+                  {name}
+                  {name === storedNickname && (
+                    <span className="text-muted-foreground"> (나)</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </aside>
       </div>
-
-      <aside className="relative hidden w-48 shrink-0 flex-col gap-3 rounded-md border border-border bg-background/70 p-3 backdrop-blur-sm sm:flex">
-        <h2 className="text-sm font-medium text-muted-foreground">
-          참여자 {participants.length}명
-        </h2>
-        <ul className="flex flex-col gap-1">
-          {participants.map((name) => (
-            <li
-              key={name}
-              className="flex items-center gap-2 truncate text-sm"
-            >
-              <span className="size-1.5 shrink-0 rounded-full bg-primary" />
-              <span className="truncate">
-                {name}
-                {name === storedNickname && (
-                  <span className="text-muted-foreground"> (나)</span>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </aside>
     </div>
   );
 }
